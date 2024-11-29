@@ -1,0 +1,4 @@
+app_name: "WidaTech-Interview"
+server:
+  address: "127.0.0.1"
+  port: 1302
