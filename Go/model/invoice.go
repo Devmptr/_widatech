@@ -1,5 +1,9 @@
 package model
 
+import (
+	"widatech_interview/golang/helpers"
+)
+
 type PaymentType string
 
 const (
@@ -14,7 +18,17 @@ type Invoice struct {
 	SalesPersonName string      `json:"sales_person_name" validate:"required,min=2"`
 	PaymentType     PaymentType `json:"payment_type" validate:"required,oneof=CASH CREDIT"`
 	Notes           string      `json:"notes" validate:"omitempty,min=5"`
-	ListOfProduct   []Product   `json:"list_of_product" validate:"required,min=1"`
+	ListOfProduct   []Product   `json:"list_of_product" validate:"omitempty,min=1"`
+}
+
+func (i *Invoice) CreateFromExcel(row []string) {
+	i.InvoiceNo = row[0]
+	i.Date = helpers.ReformatDateExcel(row[1])
+	i.CustomerName = row[2]
+	i.SalesPersonName = row[3]
+	i.PaymentType = PaymentType(row[4])
+	i.Notes = row[5]
+	// i.ListOfProduct = []Product{}
 }
 
 type InvoiceGet struct {

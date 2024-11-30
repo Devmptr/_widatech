@@ -9,6 +9,7 @@ import (
 	"widatech_interview/golang/services"
 
 	"github.com/labstack/echo/v4"
+	"github.com/xuri/excelize/v2"
 )
 
 func Create() *echo.Echo {
@@ -70,7 +71,7 @@ func RegisterRoute(e *echo.Echo, dbConn *sql.DB) {
 		req := &model.InvoiceGet{}
 
 		if err := RequestValidate(c, req); err != nil {
-			c.JSON(http.StatusBadRequest, BaseResponse{
+			return c.JSON(http.StatusBadRequest, BaseResponse{
 				Message: err.Error(),
 			})
 		}
@@ -141,6 +142,108 @@ func RegisterRoute(e *echo.Echo, dbConn *sql.DB) {
 		return c.JSON(http.StatusOK, BaseResponse{
 			Message: "success",
 			Data:    res,
+		})
+	})
+
+	e.POST("/import", func(c echo.Context) error {
+		file, err := c.FormFile("file")
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, err.Error())
+		}
+
+		src, err := file.Open()
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, err.Error())
+		}
+		defer src.Close()
+
+		xlsx, err := excelize.OpenReader(src)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, err.Error())
+		}
+
+		invoiceSheet := xlsx.GetSheetName(0)
+		invoiceRows, _ := xlsx.GetRows(invoiceSheet)
+
+		invoiceLists := []model.Invoice{}
+		failed := map[string]string{}
+
+		for i := 1; i < len(invoiceRows); i++ {
+			row := invoiceRows[i]
+
+			inv := model.Invoice{}
+			inv.CreateFromExcel(row)
+
+			if err := RequestValidate[model.Invoice](c, &inv); err != nil {
+				failed[inv.InvoiceNo] = err.Error()
+			} else {
+				invoiceLists = append(invoiceLists, inv)
+			}
+		}
+
+		productSheet := xlsx.GetSheetName(1)
+		productRows, _ := xlsx.GetRows(productSheet)
+
+		productLists := map[string][]model.Product{}
+
+		for i := 1; i < len(productRows); i++ {
+			row := productRows[i]
+
+			prd := model.Product{}
+			if err := prd.CreateFromExcel(row); err != nil {
+				failed[prd.InvoiceNo] = err.Error()
+			}
+
+			exists := false
+			for _, value := range invoiceLists {
+				if value.InvoiceNo == prd.InvoiceNo {
+					exists = true
+					break
+				}
+			}
+			if !exists {
+				failed[prd.InvoiceNo] = "Invoice Not Found"
+			}
+
+			if err := RequestValidate[model.Product](c, &prd); err != nil {
+				failed[prd.InvoiceNo] = err.Error()
+			} else {
+				if _, ok := productLists[prd.InvoiceNo]; !ok {
+					productLists[prd.InvoiceNo] = []model.Product{}
+				}
+
+				productLists[prd.InvoiceNo] = append(productLists[prd.InvoiceNo], prd)
+			}
+		}
+
+		listProcessed := []model.Invoice{}
+
+		for _, invoiceToProcess := range invoiceLists {
+			res, err := invoiceService.Create(invoiceToProcess)
+			if err != nil {
+				failed[invoiceToProcess.InvoiceNo] = err.Error()
+			}
+			res.ListOfProduct = productLists[invoiceToProcess.InvoiceNo]
+
+			for i := 0; i < len(res.ListOfProduct); i++ {
+				product := res.ListOfProduct[i]
+				product.InvoiceNo = res.InvoiceNo
+
+				_, err := productService.Create(product)
+				if err != nil {
+					failed[invoiceToProcess.InvoiceNo] = err.Error()
+				}
+			}
+
+			if err == nil {
+				listProcessed = append(listProcessed, res)
+			}
+		}
+
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"message":      "File uploaded and processed successfully",
+			"failed":       failed,
+			"invoiceLists": listProcessed,
 		})
 	})
 }
