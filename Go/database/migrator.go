@@ -1,9 +1,8 @@
 package database
 
 import (
-	"database/sql"
-	"fmt"
 	"widatech_interview/golang/config"
+	"widatech_interview/golang/core"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/mysql"
@@ -13,14 +12,13 @@ import (
 func Execute(conf *config.DatabaseConfig) error {
 	var err error
 
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", conf.User, conf.Password, conf.Host, conf.Port, conf.DbName)
-	db, err := sql.Open("mysql", dsn)
-	if err != nil {
+	db := core.NewDB(conf)
+	if err := db.MakeConnection(); err != nil {
 		return err
 	}
-	defer db.Close()
+	defer db.CloseConnection()
 
-	driver, err := mysql.WithInstance(db, &mysql.Config{})
+	driver, err := mysql.WithInstance(db.Connection, &mysql.Config{})
 	if err != nil {
 		return err
 	}

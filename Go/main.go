@@ -17,6 +17,7 @@ func main() {
 
 	app := core.NewApp(".")
 	app.Boot()
+	defer app.Db.CloseConnection()
 
 	switch *cmd {
 	case "serve":

@@ -12,6 +12,7 @@ import (
 type App struct {
 	Config config.AppConfig
 	Server *echo.Echo
+	Db     *Db
 }
 
 func NewApp(configPath string) *App {
@@ -22,11 +23,12 @@ func NewApp(configPath string) *App {
 
 func (a *App) Boot() {
 	a.initConfig()
+	a.initDatabase(a.Config.DatabaseConfig)
 }
 
 func (a *App) Serve() {
 	a.Server = api.Create()
-	api.Register(a.Server)
+	api.Register(a.Server, a.Db.Connection)
 	api.Start(a.Server, a.Config.ServerConfig)
 }
 
@@ -41,4 +43,15 @@ func (a *App) initConfig() {
 	}
 
 	a.Config = conf
+}
+
+func (a *App) initDatabase(conf *config.DatabaseConfig) {
+	a.Db = NewDB(conf)
+
+	if err := a.Db.MakeConnection(); err != nil {
+		fmt.Printf("[ERR] [APP] Failed Make Connection : %s", err.Error())
+
+		os.Exit(0)
+		return
+	}
 }
