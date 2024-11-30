@@ -2,16 +2,19 @@ package database
 
 import (
 	"database/sql"
+	"fmt"
+	"widatech_interview/golang/config"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/mysql"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
-func Execute() error {
+func Execute(conf *config.DatabaseConfig) error {
 	var err error
 
-	db, err := sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/widatech")
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", conf.User, conf.Password, conf.Host, conf.Port, conf.DbName)
+	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return err
 	}
@@ -22,7 +25,7 @@ func Execute() error {
 		return err
 	}
 
-	m, err := migrate.NewWithDatabaseInstance(
+	migrator, err := migrate.NewWithDatabaseInstance(
 		"file://database/migrations",
 		"mysql",
 		driver,
@@ -31,7 +34,7 @@ func Execute() error {
 		return err
 	}
 
-	err = m.Up()
+	err = migrator.Up()
 	if err != nil && err != migrate.ErrNoChange {
 		return err
 	}

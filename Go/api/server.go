@@ -18,7 +18,7 @@ func Register(e *echo.Echo) {
 	})
 }
 
-func Start(e *echo.Echo, serverConfig config.ServerConfig) {
+func Start(e *echo.Echo, serverConfig *config.ServerConfig) {
 	e.Logger.Fatal(
 		e.Start(fmt.Sprintf("%s:%d", serverConfig.Address, serverConfig.Port)),
 	)

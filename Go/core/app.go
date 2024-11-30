@@ -22,7 +22,6 @@ func NewApp(configPath string) *App {
 
 func (a *App) Boot() {
 	a.initConfig()
-	a.Serve()
 }
 
 func (a *App) Serve() {
